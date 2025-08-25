@@ -28,6 +28,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
   @Override
   public ApiResponse<Employee> save(Employee employee) {
+    // Pass through to DAO layer
     return employeeDAO.save(employee);
   }
 

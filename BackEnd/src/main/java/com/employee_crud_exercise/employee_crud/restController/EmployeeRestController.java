@@ -12,6 +12,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -34,6 +35,14 @@ public class EmployeeRestController {
   @GetMapping("employees/{id}")
   public ApiResponse<Employee> getEmployeeById(@PathVariable Long id) {
     return employeeService.findById(id);
+  }
+
+  // Create a new employee
+  @PostMapping("employees")
+  public ApiResponse<Employee> createEmployee(@RequestBody Employee employee) {
+    // Set ID to null to ensure we're creating a new employee
+    employee.setId(null);
+    return employeeService.save(employee);
   }
 
   // Update an existing employee

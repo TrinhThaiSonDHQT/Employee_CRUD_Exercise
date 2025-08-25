@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.employee_crud_exercise.employee_crud.entity.Employee;
@@ -11,7 +12,6 @@ import com.employee_crud_exercise.employee_crud.model.ApiResponse;
 import com.employee_crud_exercise.employee_crud.utils.EmployeeUtils;
 
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceException;
 
 @Repository
 public class EmployeeDAOImpl implements EmployeeDAO {
@@ -57,7 +57,7 @@ public class EmployeeDAOImpl implements EmployeeDAO {
   }
 
   @Override
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW) // This creates a new transaction
   public ApiResponse<Employee> save(Employee employee) {
     try {
       // Check if this is an update or a new employee
@@ -82,22 +82,36 @@ public class EmployeeDAOImpl implements EmployeeDAO {
         }
 
         // Merge the updated employee
-        entityManager.merge(existingEmployee);
+        Employee merged = entityManager.merge(existingEmployee);
 
         // Clean sensitive data before returning
-        Employee cleanedEmployee = EmployeeUtils.cleanEmployeeData(existingEmployee);
+        Employee cleanedEmployee = EmployeeUtils.cleanEmployeeData(merged);
         return new ApiResponse<>(cleanedEmployee, "Employee updated successfully");
       } else {
+        // Check if email already exists - using a separate query outside of the current
+        // transaction
+        List<?> results = entityManager.createQuery(
+            "SELECT e.id FROM Employee e WHERE e.email = :email")
+            .setParameter("email", employee.getEmail())
+            .setMaxResults(1)
+            .getResultList();
+
+        if (!results.isEmpty()) {
+          // Email already exists, cannot create new employee with the same email
+          return new ApiResponse<>("An employee with this email already exists");
+        }
+
         // This is a new employee - persist it
         entityManager.persist(employee);
+        entityManager.flush(); // Force immediate flush to database
 
         // Clean sensitive data before returning
         Employee cleanedEmployee = EmployeeUtils.cleanEmployeeData(employee);
         return new ApiResponse<>(cleanedEmployee, "Employee created successfully");
       }
-    } catch (PersistenceException e) {
-      return new ApiResponse<>("Database error while saving employee: " + e.getMessage());
     } catch (Exception e) {
+      // Log the exception
+      e.printStackTrace();
       return new ApiResponse<>("Error saving employee: " + e.getMessage());
     }
   }
